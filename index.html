@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Music Synthesis</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+/* Layout: a DAW-style transport bar on top; below it, the slide text beside the live instrument panel. One dark look, matching the panels. */
+:root {
+  --bg: #1d1d1d;
+  --strip: #2e2e2e;
+  --well: #262626;
+  --edge: #111111;
+  --rule: #3b3b3b;
+  --fg: #e6e6e6;
+  --muted: #a9a9a9;
+  --key: #555555;
+  --key-hi: #626262;
+  --cyan: #4fd1ff;
+  --cyan-ink: #08202a;
+  --amber: #ffb22e;
+  --display: 'Archivo', 'Arial Narrow', Arial, sans-serif;
+  --body: 'IBM Plex Sans', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); display: flex; flex-direction: column; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--strip); }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: var(--strip); border-bottom: 1px solid var(--edge); }
+.brand { font: 700 16px/1 var(--display); font-stretch: 85%; letter-spacing: .01em; white-space: nowrap; }
+.where { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1 1 8rem; }
+.count { font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+.nav { display: flex; gap: 6px; }
+.btn { appearance: none; border: 1px solid var(--edge); background: var(--key); color: var(--fg); font: 500 13px/1 var(--body);
+  padding: 9px 14px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--key-hi); }
+.btn:focus-visible, .topic:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+.btn.go { background: var(--cyan); color: var(--cyan-ink); font-weight: 600; }
+.btn.go:hover { filter: brightness(1.08); }
+.btn[disabled] { opacity: .35; cursor: default; }
+
+main { flex: 1 1 auto; min-height: 0; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 16px; }
+
+/* contents */
+.home { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 40px; align-items: start; padding-top: 12px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--cyan); margin: 0 0 14px; }
+.home h1 { font: 800 clamp(40px, 6vw, 68px)/.95 var(--display); font-stretch: 78%; margin: 0 0 22px; text-wrap: balance; letter-spacing: -.01em; }
+.topics { display: grid; gap: 6px; }
+.topic { display: grid; grid-template-columns: 2.6rem 1fr; align-items: center; text-align: left; width: 100%;
+  appearance: none; border: 1px solid var(--edge); background: var(--key); color: var(--fg); border-radius: 3px; padding: 11px 14px; font: 500 14px/1.3 var(--body); cursor: pointer; }
+.topic:hover { background: var(--key-hi); }
+.topic .no { font: 500 12px/1 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.start { margin-top: 14px; display: flex; justify-content: flex-end; }
+.start .btn { padding: 12px 26px; font-size: 14px; }
+
+/* slide */
+.slide { height: 100%; display: grid; grid-template-columns: minmax(0, 30rem) minmax(0, 1fr); gap: 20px; }
+.text { min-width: 0; overflow: auto; padding-right: 6px; scrollbar-width: thin; scrollbar-color: var(--rule) transparent; }
+.panel { min-width: 0; min-height: 600px; background: var(--well); border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; }
+.panel iframe { display: block; width: 100%; height: 100%; border: 0; }
+
+.prose { max-width: 62ch; }
+.prose h2 { font: 800 34px/1.05 var(--display); font-stretch: 80%; margin: 4px 0 14px; text-wrap: balance; }
+.prose h3 { font: 700 15px/1.2 var(--display); font-stretch: 90%; text-transform: uppercase; letter-spacing: .06em; color: var(--cyan); margin: 22px 0 8px; }
+.prose h4 { font: 700 18px/1.2 var(--display); margin: 0 0 12px; color: var(--muted); }
+.prose p { margin: 0 0 12px; }
+.prose ul, .prose ol { margin: 0 0 12px; padding-left: 1.25em; }
+.prose li { margin: 3px 0; }
+.prose li::marker { color: var(--muted); }
+.prose strong { color: #fff; font-weight: 600; }
+.prose em { color: var(--fg); }
+.prose blockquote { margin: 0 0 12px; padding-left: 12px; border-left: 2px solid var(--rule); color: var(--muted); }
+.prose .try { margin-top: 18px; padding: 10px 12px; background: var(--strip); border: 1px solid var(--edge); border-radius: 3px; }
+.prose .try strong { color: var(--amber); }
+.tbl { overflow-x: auto; margin: 0 0 14px; }
+.prose table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
+.prose th { text-align: left; font: 500 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 10px 6px 0; border-bottom: 1px solid var(--rule); }
+.prose td { padding: 6px 10px 6px 0; border-bottom: 1px solid #2a2a2a; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 980px) {
+  .home { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .slide { height: auto; grid-template-columns: minmax(0, 1fr); }
+  .text { overflow: visible; padding-right: 0; }
+  .panel { height: 760px; min-height: 0; }
+  .where { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Music Synthesis</div>
+  <div class="where" id="where"></div>
+  <div class="count" id="count"></div>
+  <nav class="nav" aria-label="Slides">
+    <button class="btn" id="prev" type="button">◀ Previous</button>
+    <button class="btn" id="home" type="button">Contents</button>
+    <button class="btn go" id="next" type="button">Next ▶</button>
+  </nav>
+</header>
+<main id="view"></main>
+
+<script>
+const SLIDES = [{"n": 1, "label": "Contents", "html": "<p>A synthesizer is a set of <strong>modules</strong>, each with one job. Oscillators produce the audio signal. Filters and amplifiers modify it. Envelope generators and LFOs supply the <strong>control voltages</strong> that change it over time.</p>\n<p>The slides follow that order, based on Pellman, Chapter 8: <em>Analog Sound Synthesis</em>. Each one has an instrument you can play.</p>\n<p><strong>Using this page</strong></p>\n<ul><li>Pick a topic, or press <strong>Start</strong></li><li>Move between slides with <strong>◀ Previous</strong> and <strong>Next ▶</strong>, or the arrow keys</li><li>Press <strong>Play</strong> in a panel, or click its keyboard, to hear each example</li><li>Start with your volume low</li></ul>"}, {"n": 2, "label": "Sound Waves & Oscillators", "html": "<h2>Sound Waves &amp; Oscillators</h2>\n<p>Sound reaches us as vibrations in the air. An analog synthesizer works with electrical oscillations that correspond to those vibrations. At the loudspeaker the voltage moves the cone, and the cone moves the air. That correspondence is why these instruments are called <strong>analog</strong> synthesizers.</p>\n<h4>The oscillator</h4>\n<p>The <strong>voltage-controlled oscillator (VCO)</strong> is the audio signal source found on every analog synthesizer, usually two or three of them. It produces a continuous, repeating signal.</p>\n<h4>Reading the graph</h4>\n<p>The x-axis is <strong>time</strong>. The y-axis is the signal level:</p>\n<ul><li><strong>+1</strong>: the cone at its furthest point outward</li><li><strong>−1</strong>: the cone at its furthest point inward</li></ul>\n<p>A VCO never stops by itself. To get separate tones with a beginning and an end, its signal has to pass through a gate or an amplifier (slide 6).</p>\n<p class=\"try\"><strong>Try it →</strong> slow the oscillator down and watch the cone follow the graph. <em>Bass drum</em> plays Figure 1, a wave that dies away.</p>"}, {"n": 3, "label": "Frequency & Pitch", "html": "<h2>Frequency &amp; Pitch</h2>\n<p><strong>Frequency</strong> is the number of cycles a wave completes each second, measured in <strong>Hertz (Hz)</strong>. A higher frequency is heard as a higher <strong>pitch</strong>.</p>\n<div class=\"tbl\"><table><thead><tr><th>Frequency</th><th>Pitch</th></tr></thead><tbody><tr><td>220 Hz</td><td>A3</td></tr><tr><td><strong>440 Hz</strong></td><td><strong>A4, the A above middle C</strong></td></tr><tr><td>880 Hz</td><td>A5</td></tr></tbody></table></div>\n<p>Doubling the frequency raises the pitch one <strong>octave</strong>. Halving it lowers the pitch one octave.</p>\n<h4>Setting the pitch of a VCO</h4>\n<ul><li>A <strong>coarse</strong> dial covers most of the frequencies we can hear</li><li>A <strong>fine</strong> dial makes small adjustments</li><li>Some VCOs have a range switch marked like organ stops (16′, 8′, 4′). Each step moves the pitch one octave</li></ul>\n<h4>Related properties</h4>\n<ul><li><strong>Period</strong> = 1 ÷ frequency, the length of one cycle</li><li><strong>Wavelength</strong> = speed of sound ÷ frequency (about 343 m/s ÷ f)</li><li><strong>Amplitude</strong> = how far the wave swings from zero, heard as loudness</li></ul>\n<p class=\"try\"><strong>Try it →</strong> use ×2 and ÷2 to move by octaves and watch the cycles squeeze together or spread out.</p>"}, {"n": 4, "label": "Basic Waveforms", "html": "<h2>Basic Waveforms</h2>\n<p>A VCO usually offers a choice of standard waveforms. They can share a pitch and still differ in tone colour, because each contains a different set of partials.</p>\n<div class=\"tbl\"><table><thead><tr><th>Wave</th><th>Partials present</th><th>Amplitude of partial n</th></tr></thead><tbody><tr><td><strong>Sine</strong></td><td>fundamental only</td><td>—</td></tr><tr><td><strong>Sawtooth</strong></td><td>all</td><td>1/n</td></tr><tr><td><strong>Square</strong></td><td>odd only</td><td>1/n</td></tr><tr><td><strong>Triangle</strong></td><td>odd only</td><td>1/n²</td></tr></tbody></table></div>\n<ul><li><strong>Sine</strong>: no overtones at all</li><li><strong>Sawtooth</strong>: the first three overtones together are stronger than the fundamental. Most of the energy is in the overtones, so it sounds bright and penetrating</li><li><strong>Square</strong>: the even partials, which would reinforce the odd ones at the octave, are missing. It sounds hollow</li><li><strong>Triangle</strong>: most of the energy stays in the fundamental. It sounds mellow</li></ul>\n<p>A square wave is a <strong>pulse wave</strong> with a <strong>duty cycle</strong> of 1:2. With a duty cycle of 1:3 every third partial is missing, and with 1:4 every fourth.</p>\n<p class=\"try\"><strong>Try it →</strong> choose a wave, press <em>Play</em> and compare the spectra.</p>"}, {"n": 5, "label": "Fourier, Harmonics & Phase", "html": "<h2>Fourier, Harmonics &amp; Phase</h2>\n<p>A periodic wave can be treated as a sum of sine waves at whole-number multiples of a fundamental (Fourier's theorem).</p>\n<ul><li>The <strong>fundamental</strong> sets the pitch</li><li><strong>Overtones</strong> lie at 2×, 3×, 4×… the fundamental</li><li>Their relative amplitudes give the tone colour</li></ul>\n<p>For A at 220 Hz, the overtones are at 440, 660, 880 Hz and so on.</p>\n<h4>Additive synthesis</h4>\n<p>Building a timbre by mixing sine waves is <strong>additive synthesis</strong>. On an analog synthesizer each partial needs its own VCO, VCA and envelope generator, all feeding a mixer. That takes many modules, and the VCOs rarely stay in tune with each other for long. Additive synthesis only became practical with digital hardware.</p>\n<h4>Phase</h4>\n<p>The textbook wave shapes appear only when all the partials are <strong>in phase</strong>. Shift some of them and the shape changes, but the timbre sounds the same. Two equal sine waves 180° apart cancel completely (Figure 3).</p>\n<p class=\"try\"><strong>Try it →</strong> move the harmonic sliders or load a preset, then sweep the phase of B.</p>"}, {"n": 6, "label": "Building a Synth: Modules & the VCA", "html": "<h2>Building a Synth</h2>\n<p>An analog synthesizer is a collection of <strong>modules</strong>, each with one function. Their inputs and outputs are joined with <strong>patch cords</strong>. A particular combination of connected modules is called a <strong>patch</strong>.</p>\n<p>Each module in a patch does at least one of three things:</p>\n<ol><li><strong>Audio signal source</strong>: produces the sound (VCO, noise generator)</li><li><strong>Modifier</strong>: changes the amplitude, spectrum or another feature of the signal (VCA, VCF)</li><li><strong>Control voltage source</strong>: sends voltages that adjust other modules (keyboard, envelope generator, LFO)</li></ol>\n<h4>The VCA</h4>\n<p>The <strong>voltage-controlled amplifier (VCA)</strong> sets the amplitude of the signal passing through it. Its base level is normally zero, so nothing passes until a control voltage opens it.</p>\n<p>The keyboard sends:</p>\n<ul><li><strong>Pitch</strong> voltage → VCO</li><li><strong>Gate</strong>, present while a key is held → VCA</li><li><strong>Velocity</strong>, how hard the key is struck → VCA level</li></ul>\n<p class=\"try\"><strong>Try it →</strong> set <em>VCA</em> to Off and press Play to hear the oscillator run without stopping. Turn it back on and play the keys. Clicking lower on a key gives a harder, louder note.</p>"}, {"n": 7, "label": "Filters", "html": "<h2>Filters</h2>\n<p>A <strong>voltage-controlled filter (VCF)</strong> shapes the tone colour of a signal by reducing a range of frequencies (active filters can also boost them).</p>\n<div class=\"tbl\"><table><thead><tr><th>Type</th><th>Passes</th></tr></thead><tbody><tr><td><strong>Low-pass</strong></td><td>frequencies below the cutoff</td></tr><tr><td><strong>High-pass</strong></td><td>frequencies above the cutoff</td></tr><tr><td><strong>Band-pass</strong></td><td>a band between a lower and an upper cutoff</td></tr><tr><td><strong>Band-reject (notch)</strong></td><td>everything except that band</td></tr></tbody></table></div>\n<ul><li><strong>Cutoff frequency</strong>: where the effect of the filter begins to be heard. It is not a hard edge</li><li><strong>Slope (roll-off)</strong>: how fast attenuation increases, in dB per octave. At 12 dB per octave, the signal is effectively gone (−60 dB) five octaves past the cutoff</li><li><strong>Q (resonance)</strong>: some of the output is fed back to the input, giving a peak near the cutoff. The dial may be labelled Resonance, Emphasis or Regeneration</li></ul>\n<p>Removing frequencies from a rich waveform like this is <strong>subtractive synthesis</strong>, the main technique of analog synthesis.</p>\n<p class=\"try\"><strong>Try it →</strong> play the saw, sweep the cutoff, then raise the resonance. With a high Q, each partial rings out in turn as the cutoff passes it. <em>Auto-sweep</em> moves the cutoff for you.</p>"}, {"n": 8, "label": "Envelope Generators (ADSR)", "html": "<h2>Envelope Generators</h2>\n<p>Control voltages are never heard themselves. They act on the modules that produce or modify the audio, and we hear the effect.</p>\n<p>An <strong>envelope generator</strong> produces one contour of voltage each time it is triggered. It is usually sent to a VCA to shape the amplitude envelope. The common four-stage form is <strong>ADSR</strong>:</p>\n<ul><li><strong>Attack</strong>: the voltage rises from zero to its peak</li><li><strong>Initial decay</strong>: it falls from the peak to the sustain level</li><li><strong>Sustain</strong>: a <em>level</em>, held for as long as the key is down</li><li><strong>Release (final decay)</strong>: it falls from the sustain level back to zero</li></ul>\n<h4>Trigger and gate</h4>\n<p>Pressing a key sends a <strong>trigger</strong>, which starts the envelope, and a <strong>gate</strong>, which lasts as long as the key is held. The gate decides how long the sustain lasts. Releasing the key starts the final decay.</p>\n<p>Figure 19: A = 250 ms, D = 200 ms, S = 0.7, R = 200 ms</p>\n<p>Sent to a filter instead, the envelope gives a <strong>timbre envelope</strong>: the cutoff rises and falls with each note.</p>\n<p class=\"try\"><strong>Try it →</strong> set the four stages, then hold a key and let go.</p>"}, {"n": 9, "label": "Control Signals: LFO & FM", "html": "<h2>LFO &amp; Frequency Modulation</h2>\n<p>A <strong>low-frequency oscillator (LFO)</strong> runs below the range of hearing, so it is used only as a control voltage source.</p>\n<ul><li>To a <strong>VCO</strong> → <strong>vibrato</strong>. The LFO's frequency sets the rate, and its amplitude sets the width</li><li>To a <strong>VCA</strong> → <strong>tremolo</strong></li><li>To a <strong>VCF</strong> cutoff → a <strong>wa-wa</strong> effect</li></ul>\n<p>Vibrato is slower than about 20 changes per second, so the ear can follow each one. Singers and string players often bring vibrato in partway through a long note. Some LFOs have a delay dial to do the same.</p>\n<p>Figure 21 uses an LFO at <strong>1.8 Hz</strong> for vibrato.</p>\n<h4>Into the audio range</h4>\n<p>Above about 30 Hz the individual changes can no longer be heard. New frequencies called <strong>sidebands</strong> appear around the <strong>carrier</strong> instead. Modulating the frequency of a VCO this way is <strong>frequency modulation (FM)</strong>. Modulating a VCA is <strong>amplitude modulation (AM)</strong>: a 500 Hz carrier and a 67 Hz modulator give 433, 500 and 567 Hz.</p>\n<p class=\"try\"><strong>Try it →</strong> start at 1.8 Hz on Pitch, then switch targets. Raise the rate past about 30 Hz and listen for the sidebands.</p>"}, {"n": 10, "label": "The Complete Synth (Figure 21)", "html": "<h2>The Complete Synth</h2>\n<p>The modules from the earlier slides, patched together as in <strong>Figure 21</strong>:</p>\n<ol><li><strong>Keyboard</strong>: control voltage for pitch, plus trigger and gate</li><li><strong>LFO</strong> (1.8 Hz) → VCO pitch: vibrato</li><li><strong>VCO</strong>: the sawtooth audio signal</li><li><strong>Low-pass VCF</strong> with resonance: shapes the tone colour</li><li><strong>Envelope generator (ADSR)</strong>: drives the VCA and moves the filter cutoff</li><li><strong>VCA</strong>: sets the level → <strong>audio output</strong></li></ol>\n<p>The keyboard and envelope signals are never heard. What we hear is their effect on the pitch, loudness and timbre of the audio signal.</p>\n<p>Early synthesizer keyboards were <strong>monophonic</strong>: they sent one control voltage at a time, usually giving priority to the lowest key held. This keyboard gives priority to the last key played.</p>\n<p class=\"try\"><strong>Try it →</strong> load a preset and adjust it. Click the keyboard once, then play with <strong>A W S E D F T G Y H U J K</strong>.</p>"}, {"n": 11, "label": "Harmonics, Partials & Noise", "html": "<h2>Harmonics, Partials &amp; Noise</h2>\n<p><em>(An Apple perspective)</em></p>\n<p>A vibration that repeats in a regular pattern has a waveform and a pitch. A vibration with no repeating pattern is <strong>noise</strong>.</p>\n<ul><li><strong>Fundamental</strong>: the lowest partial, which sets the pitch</li><li><strong>Harmonics (overtones)</strong>: partials at whole-number multiples of the fundamental</li><li><strong>Inharmonic partials</strong>: partials that are not whole-number multiples, as in bells and metallic sounds</li><li><strong>Subharmonic</strong>: the fundamental divided by a whole number</li></ul>\n<h4>Noise generators</h4>\n<p>A noise generator has outputs only, often separate jacks for <strong>white</strong> and <strong>pink</strong> noise, or one dial for the colour of the noise. It is usually patched into a filter or a VCA.</p>\n<h4>The spectrum</h4>\n<p>The spectrum shows each component from low (left) to high (right). Taller lines are louder. In acoustic sounds these levels change all the time. A plain synthesizer tone has evenly spaced partials under a single envelope, which is part of why it can sound artificial.</p>\n<p class=\"try\"><strong>Try it →</strong> raise <em>Inharmonicity</em> to move the partials off their whole-number positions, then fade in <em>Noise</em>. Compare the <em>Organ</em> and <em>Bell</em> presets.</p>"}, {"n": 12, "label": "What Is a Synthesizer? Analog vs Digital", "html": "<h2>What Is a Synthesizer?</h2>\n<p>Electronic synthesizers have been available since the mid-1950s.</p>\n<ul><li><strong>Analog</strong> synthesizers, generally the older ones, work directly with electrical oscillations that correspond to the sound at the loudspeaker</li><li><strong>Digital</strong> synthesizers work with numbers that represent those oscillations</li></ul>\n<h4>A short history</h4>\n<ul><li><strong>1951</strong>: the Cologne studio (NWDR) used oscillators, filters and tape. Each tone was recorded and spliced by hand</li><li><strong>1955–57</strong>: the RCA synthesizer and its Mark II automated much of that work</li><li><strong>1960s</strong>: transistor-based modular synthesizers using <strong>voltage control</strong></li><li><strong>1970</strong>: the Minimoog, built for the stage, with pitch-bend and vibrato wheels</li><li><strong>1978</strong>: the Prophet-5 stores whole patches and recalls them at the press of a button</li><li><strong>1983</strong>: the Yamaha DX7, a digital synthesizer, and MIDI</li></ul>\n<p>Analog circuits drift out of tune during a session. <strong>Hybrid</strong> instruments pair digital oscillators with analog filters and amplifiers. <strong>Virtual analog</strong> (such as Logic's ES1) reproduces analog circuits in software.</p>\n<p class=\"try\"><strong>Try it →</strong> play the chord in each mode. <em>Analog</em> wanders out of tune, more so after a <em>Cold start</em>. <em>Digital</em> stays exactly in tune.</p>"}, {"n": 13, "label": "Appendix: SNR, Frequency Response & THD", "html": "<h2>Appendix: Audio Specs</h2>\n<h4>Signal-to-noise ratio (SNR)</h4>\n<p>The level of the signal compared with the device's <strong>noise floor</strong> (hiss and hum), in dB. A higher number is better. Two devices can only be compared fairly if they were measured against the same reference level.</p>\n<h4>Frequency response</h4>\n<p>How evenly a device reproduces low through high frequencies, usually over <strong>20 Hz – 20 kHz</strong>, the range of human hearing. The top of that range falls with age. <em>20 Hz – 20 kHz ±3 dB</em> means the level stays within 3 dB across the range. A <strong>flat</strong> response adds no colour.</p>\n<h4>Total harmonic distortion (THD)</h4>\n<p>The harmonics a device adds to the signal, given as a percentage (for example 0.004%). Lower is better, but very small differences cannot be heard. Your ears, the room and the speakers matter more.</p>\n<p class=\"try\"><strong>Try it →</strong> find the top of your hearing range, set the noise floor, and drive the amp into distortion.</p>"}];
+const N = SLIDES.length;
+const view = document.getElementById('view');
+const $ = (id) => document.getElementById(id);
+let cur = 1;
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function fromHash() { const m = /^#slide-(\d+)$/.exec(location.hash); const n = m ? Number(m[1]) : 1; return n >= 1 && n <= N ? n : 1; }
+function go(n) { location.hash = n === 1 ? 'contents' : 'slide-' + n; }
+
+function render(n) {
+  cur = n;
+  const s = SLIDES[n - 1];
+  $('count').textContent = pad(n) + ' / ' + pad(N);
+  $('where').textContent = n === 1 ? 'Analog sound synthesis' : s.label;
+  $('prev').disabled = n === 1;
+  $('next').textContent = n === 1 ? 'Start ▶' : n === N ? 'Back to start ↺' : 'Next ▶';
+  if (n === 1) {
+    view.innerHTML = '<section class="home"><div class="prose"><p class="eyebrow">PAT 200/500 · Synthesis</p><h1>Music Synthesis</h1>' + s.html + '</div>' +
+      '<div><p class="eyebrow">Topics</p><div class="topics">' + SLIDES.slice(1).map((t) => '<button class="topic" type="button" data-n="' + t.n + '"><span class="no">' + pad(t.n) + '</span><span>' + t.label + '</span></button>').join('') +
+      '</div><div class="start"><button class="btn go" type="button" data-n="2">Start ▶</button></div></div></section>';
+  } else {
+    view.innerHTML = '<section class="slide"><article class="text prose">' + s.html + '</article>' +
+      '<div class="panel"><iframe title="' + s.label.replace(/"/g, '&quot;') + ' instrument" src="panels/s' + pad(n) + '.html" allow="autoplay"></iframe></div></section>';
+  }
+  view.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => go(Number(b.dataset.n))));
+  window.scrollTo(0, 0);
+}
+
+$('prev').addEventListener('click', () => { if (cur > 1) go(cur - 1); });
+$('home').addEventListener('click', () => go(1));
+$('next').addEventListener('click', () => go(cur === N ? 1 : cur + 1));
+window.addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input,textarea')) return;
+  if (e.key === 'ArrowRight') go(cur === N ? 1 : cur + 1);
+  else if (e.key === 'ArrowLeft' && cur > 1) go(cur - 1);
+});
+window.addEventListener('hashchange', () => render(fromHash()));
+render(fromHash());
+</script>
+
+</body>
+</html>

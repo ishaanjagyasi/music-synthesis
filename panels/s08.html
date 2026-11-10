@@ -1,0 +1,149 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Envelope</title><style>html,body{margin:0;height:100%;background:#4b4b4b;overflow:hidden}#root{height:100%}figure{background:#1d1d1d;border-radius:4px}figcaption{position:absolute;left:10px;right:10px;top:8px;display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:#aaa;z-index:1}figcaption b{order:3;font-size:20px;color:#eee;position:absolute;left:0;top:14px}figcaption output{order:2}svg .grid{stroke:#333;fill:none}svg .zero{stroke:#555;stroke-dasharray:3 3;fill:none}svg .curve{stroke:#6aa8ff;stroke-width:1.6;fill:none}svg .curve.sounding{stroke:#ff9a3c}svg .area{fill:#6aa8ff33;stroke:none}svg .area.sounding{fill:#ff9a3c44}svg .mark{fill:#6aa8ff}svg .mark.sounding{fill:#ff9a3c}svg .guide{stroke:#888;stroke-dasharray:2 3;fill:none}svg .tick{fill:#888;font:10px monospace}</style></head><body><div id="root"></div><script type="module">const root = document.getElementById('root');
+window.addEventListener('resize', () => window.dispatchEvent(new Event('tilde:resize')));
+
+const NS = 'http://www.w3.org/2000/svg';
+function el(t, a) { const e = document.createElementNS(NS, t); for (const k in a || {}) e.setAttribute(k, a[k]); return e; }
+function div(c) { const d = document.createElement('div'); if (c) d.className = c; return d; }
+const css = document.createElement('style');
+css.textContent = '.al{--b:#4b4b4b;--t:#383838;--l:#242424;--i:#e6e6e6;--s:#b0b0b0;--btn:#5e5e5e;--on:#ffb22e;--go:#62d36b;--arc:#52c7f2;font:11px Helvetica Neue,Arial,sans-serif;color:var(--i);height:100%;display:flex;flex-direction:column;box-sizing:border-box;background:var(--b);overflow:hidden}'
++ '.al-head{display:flex;align-items:center;gap:4px;height:36px;flex:none;padding:0 8px;background:var(--t);border-bottom:1px solid var(--l)}'
++ '.al-name{margin-left:10px;font-weight:600;font-size:12px}.al-status{margin-left:auto;color:var(--s)}'
++ '.al-stage{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px;box-sizing:border-box}'
++ 'html body button.al-b{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 9px;font:11px Helvetica Neue,Arial,sans-serif;color:var(--i);background:var(--btn);border:1px solid var(--l);white-space:nowrap;user-select:none}'
++ 'html body button.al-b:hover{filter:brightness(1.12)}'
++ 'html body button.al-b[aria-pressed=true]{background:var(--on);color:#1a1a1a}'
++ 'html body button.al-t{width:36px;height:26px;padding:0}.al-t svg{display:block}'
++ 'html body button.al-play[aria-pressed=true]{background:#2c2c2c}html body button.al-play svg{fill:var(--i)}html body button.al-play[aria-pressed=true] svg{fill:var(--go)}'
++ 'html body button.al-stop svg{fill:var(--i)}'
++ '.al-rack{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 16px;flex:none;padding:8px 10px;background:var(--t);border:1px solid var(--l)}'
++ '.al-seg{display:flex;flex-direction:column;gap:4px}.al-cap{font-size:10px;color:var(--s);white-space:nowrap}.al-row{display:flex}.al-row button.al-b+button.al-b{margin-left:-1px}'
++ '.al-k{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;width:68px;user-select:none;touch-action:none}.al-v{font-size:10px;font-variant-numeric:tabular-nums;color:var(--i);white-space:nowrap}'
++ 'html body input.al-r{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0}'
++ '.al-hint{font-size:10px;color:var(--s);flex:none}'
++ '.al figure{background:#1b1b1b!important;border:1px solid var(--l)}.al figcaption,.al figcaption span,.al figcaption output{color:#d0d0d0!important}.al figcaption b{color:#fff!important}'
++ '.al svg .curve{stroke:#4fd1ff!important;stroke-width:2!important;fill:none!important}.al svg .curve.sounding{stroke:#ffa62e!important}.al svg .area{fill:rgba(79,209,255,.24)!important;stroke:none!important}.al svg .area.sounding{fill:rgba(255,166,46,.32)!important}.al svg .mark{fill:#4fd1ff!important}.al svg .mark.sounding{fill:#ffa62e!important}'
++ '.al svg .hbar{fill:#4fd1ff!important;fill-opacity:.9!important;stroke:none!important}.al svg .hbar.sounding{fill:#ffa62e!important}'
++ '.al svg .grid{stroke:#454545!important;fill:none!important}.al svg .zero{stroke:#777!important;fill:none!important}.al svg .guide{stroke:#a8a8a8!important;fill:none!important}.al svg .tick{fill:#c0c0c0!important}.al svg .partial{stroke:#8fb4c7!important;stroke-width:1.25!important;fill:none!important;opacity:1!important}';
+document.head.append(css);
+root.classList.add('al');
+const stage = div('al-stage');
+function figure(fl) { const f = document.createElement('figure'); f.style.cssText = 'flex:' + (fl || 1) + ' 1 0;margin:0;position:relative;min-height:0;'; f.innerHTML = '<figcaption><span></span><output></output><b></b></figcaption>'; const s = el('svg'); s.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'; f.append(s); f.cap = f.querySelector('span'); f.out = f.querySelector('output'); f.lead = f.querySelector('b'); f.svg = s; return f; }
+function pol(r, a) { return [32 + r * Math.sin(a), 30 - r * Math.cos(a)]; }
+function arc(r, a0, a1) { const p = pol(r, a0), q = pol(r, a1); return 'M' + p[0].toFixed(2) + ',' + p[1].toFixed(2) + 'A' + r + ',' + r + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' + q[0].toFixed(2) + ',' + q[1].toFixed(2); }
+const A0 = -2.356, A1 = 2.356;
+function bar(name, min, max, step, init, fmt, on) {
+  const k = div('al-k'), cap = div('al-cap'), o = div('al-v'), r = document.createElement('input'), s = el('svg', { width: 64, height: 52 });
+  cap.textContent = name; r.className = 'al-r'; r.setAttribute('aria-label', name);
+  Object.assign(r, { type: 'range', min, max, step, defaultValue: String(init) }); r.value = String(init);
+  const back = el('path', { d: arc(20, A0, A1), fill: 'none', 'stroke-width': 4 }); back.style.stroke = 'var(--l)';
+  const val = el('path', { fill: 'none', 'stroke-width': 4 }); val.style.stroke = 'var(--arc)';
+  const hand = el('path', { 'stroke-width': 2, 'stroke-linecap': 'round' }); hand.style.stroke = 'var(--i)';
+  s.append(back, val, hand);
+  const show = (txt) => { const f = (Number(r.value) - min) / (max - min), a = A0 + f * (A1 - A0); val.setAttribute('d', f > 0.002 ? arc(20, A0, a) : ''); const p = pol(9, a), q = pol(19, a); hand.setAttribute('d', 'M' + p[0] + ',' + p[1] + 'L' + q[0] + ',' + q[1]); o.textContent = txt === undefined ? fmt(Number(r.value)) : txt; };
+  r.oninput = () => { show(); on(Number(r.value)); };
+  let sy = 0, sf = 0, drag = false;
+  const end = () => { drag = false; };
+  s.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); drag = true; sy = e.clientY; sf = (Number(r.value) - min) / (max - min); s.setPointerCapture(e.pointerId); });
+  s.addEventListener('pointermove', (e) => { if (!drag) return; if (e.buttons === 0 || !s.hasPointerCapture(e.pointerId)) { drag = false; return; } const f = Math.max(0, Math.min(1, sf + (sy - e.clientY) / (e.shiftKey ? 800 : 160))); const v = min + Math.round(f * (max - min) / step) * step; if (v !== Number(r.value)) { r.value = String(v); r.oninput(); } });
+  s.addEventListener('pointerup', end); s.addEventListener('pointercancel', end); s.addEventListener('lostpointercapture', end); window.addEventListener('blur', end);
+  s.addEventListener('dblclick', () => { r.value = String(init); r.oninput(); });
+  k.append(cap, s, o, r); show(); k.range = r; k.out = o; k.show = show;
+  k.setV = (v) => { r.value = String(v); show(); on(v); }; k.put = (v) => { r.value = String(v); show(); };
+  return k;
+}
+function logBar(name, lo, hi, init, fmt, on) { const toV = (s) => lo * Math.pow(hi / lo, s / 1000), toS = (v) => Math.round(1000 * Math.log(v / lo) / Math.log(hi / lo)); const b = bar(name, 0, 1000, 1, toS(init), (s) => fmt(toV(s)), (s) => on(toV(s))); b.setV = (v) => { b.range.value = String(toS(v)); b.show(fmt(v)); on(v); }; return b; }
+function group(name, ...els) { const g = div('al-seg'), c = div('al-cap'), w = div('al-row'); c.textContent = name; w.append(...els); g.append(c, w); return g; }
+function key(label, on) { const b = document.createElement('button'); b.className = 'al-b'; b.textContent = label; b.onclick = () => on(b); return b; }
+function choice(name, opts, init, on) { let cur = init; const ks = opts.map((o, i) => { const k = key(o, () => { cur = i; mark(); on(i); }); return k; }); const mark = () => ks.forEach((k, i) => k.setAttribute('aria-pressed', String(i === cur))); mark(); const g = group(name, ...ks); g.setAttribute('role', 'group'); g.setAttribute('aria-label', name); g.set = (i) => { cur = i; mark(); }; return g; }
+function rack(...els) { const d = div('al-rack'); d.append(...els); return d; }
+function hint(text) { const d = div('al-hint'); d.textContent = text; return d; }
+function transport(name, onPlay, onStop) {
+  const head = div('al-head'), play = document.createElement('button'), stop = document.createElement('button'), t = div('al-name'), st = div('al-status');
+  play.className = 'al-b al-t al-play'; stop.className = 'al-b al-t al-stop'; play.setAttribute('aria-label', 'Play'); stop.setAttribute('aria-label', 'Stop');
+  const p = el('svg', { width: 14, height: 14, viewBox: '0 0 14 14' }); p.append(el('path', { d: 'M2,1L13,7L2,13Z' })); play.append(p);
+  const q = el('svg', { width: 12, height: 12, viewBox: '0 0 12 12' }); q.append(el('rect', { x: 1, y: 1, width: 10, height: 10 })); stop.append(q);
+  t.textContent = name; head.append(play, stop, t, st);
+  let on = false; const mark = () => play.setAttribute('aria-pressed', String(on)); mark();
+  const T = { head, on: () => on, status: (s) => { st.textContent = s; }, start: () => { if (on) return; on = true; mark(); onPlay(); }, stop: () => { if (!on) return; on = false; mark(); onStop(); } };
+  play.onclick = T.start; stop.onclick = T.stop;
+  return T;
+}
+function path(p) { return p.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(''); }
+function tickT(svg, x, y, s, an) { const t = el('text', { class: 'tick', x, y, 'text-anchor': an || 'start' }); t.textContent = s; svg.append(t); return t; }
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+let AC = null, master = null;
+function ctx() { if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.25; master.connect(AC.destination); } return AC; }
+function audio() { ctx(); if (AC.state === 'suspended') AC.resume(); return AC; }
+function keyboard(low, onDown, onUp) { const wrap = div(); wrap.tabIndex = 0; wrap.style.cssText = 'position:relative;height:72px;flex:none;outline:none;touch-action:none;'; const svg = el('svg'); svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'; wrap.append(svg); const keys = []; let held = null, pressing = false; const blk = (n) => [1, 3, 6, 8, 10].includes(n % 12); function paint() { keys.forEach((r, i) => { if (!r) return; r.style.fill = held === low + i ? 'var(--on)' : blk(i) ? '#2a2a2a' : '#dcdcdc'; r.style.stroke = '#2a2a2a'; }); } function build() { svg.innerHTML = ''; const w = wrap.clientWidth || 600, h = wrap.clientHeight || 72, ww = w / 15; let wi = 0; for (let i = 0; i <= 24; i++) { if (blk(i)) continue; const r = el('rect', { x: wi * ww, y: 0, width: ww, height: h }); r.dataset.m = low + i; svg.append(r); keys[i] = r; wi++; } wi = 0; for (let i = 0; i <= 24; i++) { if (blk(i)) { const r = el('rect', { x: wi * ww - ww * 0.3, y: 0, width: ww * 0.6, height: h * 0.6 }); r.dataset.m = low + i; svg.append(r); keys[i] = r; } else wi++; } paint(); } function down(m, v) { if (held !== null) up(); onDown(m, v); held = m; pressing = true; paint(); } function up() { if (held === null) return; const m = held; held = null; paint(); onUp(m); } const release = () => { if (pressing) { pressing = false; up(); } }; svg.addEventListener('pointerdown', (e) => { const m = e.target.dataset && e.target.dataset.m; if (!m) return; e.preventDefault(); e.stopPropagation(); wrap.focus(); svg.setPointerCapture(e.pointerId); const b = e.target.getBoundingClientRect(); down(Number(m), Math.min(1, Math.max(0.15, (e.clientY - b.top) / b.height))); }); svg.addEventListener('pointerup', release); svg.addEventListener('pointercancel', release); svg.addEventListener('lostpointercapture', release); window.addEventListener('blur', release); const map = 'awsedftgyhujk'; wrap.addEventListener('keydown', (e) => { if (e.repeat) return; const i = map.indexOf(e.key.toLowerCase()); if (i >= 0) { e.preventDefault(); down(low + 12 + i, 0.8); } }); wrap.addEventListener('keyup', (e) => { if (map.indexOf(e.key.toLowerCase()) >= 0) release(); }); window.addEventListener('tilde:resize', build); requestAnimationFrame(build); wrap.show = (m) => { held = m; pressing = false; paint(); }; return wrap; }
+
+// ---- Slide 8: ADSR envelope ----
+const st = { a: 250, d: 200, s: 0.7, r: 200, target: 0, on: null, off: null, offLvl: 0, vel: 0.8, hist: [] };
+let osc = null, filt = null, vca = null;
+function envAt(now) {
+  if (st.on === null) return 0;
+  if (st.off === null) { const e = now - st.on; if (e < st.a) return e / st.a; if (e < st.a + st.d) return 1 - (1 - st.s) * (e - st.a) / st.d; return st.s; }
+  const e = now - st.off; return e < st.r ? st.offLvl * (1 - e / st.r) : 0;
+}
+function stage_(now) {
+  if (st.on === null) return 'Idle';
+  if (st.off === null) { const e = now - st.on; return e < st.a ? 'Attack' : e < st.a + st.d ? 'Decay' : 'Sustain'; }
+  return now - st.off < st.r ? 'Release' : 'Idle';
+}
+function ensure() { audio(); if (osc) return; osc = AC.createOscillator(); osc.type = 'sawtooth'; filt = AC.createBiquadFilter(); filt.type = 'lowpass'; filt.Q.value = 6; filt.frequency.value = 4000; vca = AC.createGain(); vca.gain.value = 0; osc.connect(filt).connect(vca).connect(master); osc.start(); }
+const FMIN = 150, FRANGE = 5000;
+function gateOn(m, v) {
+  ensure(); const t = AC.currentTime, cur = envAt(performance.now());
+  osc.frequency.setValueAtTime(mtof(m), t); st.vel = v; const pk = 0.3 + 0.7 * v;
+  st.on = performance.now(); st.off = null;
+  const P = st.target === 0 ? vca.gain : filt.frequency, base = st.target === 0 ? 0 : FMIN, span = st.target === 0 ? pk : FRANGE;
+  P.cancelScheduledValues(t); P.setValueAtTime(base + cur * span, t); P.linearRampToValueAtTime(base + span, t + st.a / 1000); P.linearRampToValueAtTime(base + st.s * span, t + (st.a + st.d) / 1000);
+  if (st.target === 1) { vca.gain.cancelScheduledValues(t); vca.gain.setTargetAtTime(pk, t, 0.003); } else { filt.frequency.cancelScheduledValues(t); filt.frequency.setValueAtTime(4000, t); }
+}
+function gateOff() {
+  if (!osc || st.on === null || st.off !== null) return; const t = AC.currentTime, now = performance.now(); st.offLvl = envAt(now); st.off = now;
+  const P = st.target === 0 ? vca.gain : filt.frequency, base = st.target === 0 ? 0 : FMIN, span = st.target === 0 ? 0.3 + 0.7 * st.vel : FRANGE;
+  P.cancelScheduledValues(t); P.setValueAtTime(base + st.offLvl * span, t); P.linearRampToValueAtTime(base, t + st.r / 1000);
+  if (st.target === 1) { vca.gain.cancelScheduledValues(t); vca.gain.setValueAtTime(vca.gain.value, t); vca.gain.linearRampToValueAtTime(0, t + st.r / 1000 + 0.05); }
+}
+const DEMO = 57; let t1 = 0, t2 = 0;
+function cycle() { kb.show(DEMO); gateOn(DEMO, 0.8); t1 = setTimeout(() => { kb.show(null); gateOff(); t2 = setTimeout(cycle, st.r + 350); }, st.a + st.d + 500); }
+const T = transport('Envelope', cycle, () => { clearTimeout(t1); clearTimeout(t2); kb.show(null); gateOff(); });
+T.status('Play repeats a test note · or use the keyboard');
+const f1 = figure(1.2), f2 = figure(0.8);
+f1.cap.textContent = 'Envelope shape (sustain held while the key is down)';
+f2.cap.textContent = 'Envelope output, last 4 seconds';
+function draw() {
+  const now = performance.now(), lvl = envAt(now), sg = stage_(now), live = lvl > 0.001 && !!osc;
+  let s = f1.svg, w = f1.clientWidth, h = f1.clientHeight, t0 = 56, b = h - 24, L = 12, R = w - 12;
+  s.innerHTML = '';
+  const hold = Math.max(300, (st.a + st.d + st.r) * 0.4), tot = st.a + st.d + hold + st.r, X = (ms) => L + ms / tot * (R - L), Y = (v) => b - v * (b - t0);
+  const pts = [[X(0), Y(0)], [X(st.a), Y(1)], [X(st.a + st.d), Y(st.s)], [X(st.a + st.d + hold), Y(st.s)], [X(tot), Y(0)]];
+  s.append(el('path', { class: 'zero', d: 'M' + L + ',' + b + 'H' + R }));
+  [[0, st.a, 'A ' + Math.round(st.a) + ' ms'], [st.a, st.a + st.d, 'D ' + Math.round(st.d) + ' ms'], [st.a + st.d, st.a + st.d + hold, 'S ' + Math.round(st.s * 100) + '% (held)'], [st.a + st.d + hold, tot, 'R ' + Math.round(st.r) + ' ms']].forEach(([x0, x1, lab], i) => { if (i) s.append(el('path', { class: 'grid', d: 'M' + X(x0) + ',' + t0 + 'V' + b })); tickT(s, (X(x0) + X(x1)) / 2, h - 8, lab, 'middle'); });
+  s.append(el('path', { class: 'area' + (live ? ' sounding' : ''), d: path(pts) + 'Z' }));
+  s.append(el('path', { class: 'curve' + (live ? ' sounding' : ''), d: path(pts) }));
+  if (sg !== 'Idle') { let x; if (st.off === null) { const e = now - st.on; x = e < st.a + st.d ? X(e) : X(st.a + st.d + Math.min(hold * 0.95, (e - st.a - st.d) % hold)); } else x = X(st.a + st.d + hold + (now - st.off)); s.append(el('circle', { class: 'mark sounding', cx: x, cy: Y(lvl), r: 6 })); }
+  f1.lead.textContent = sg; f1.out.textContent = 'level ' + Math.round(lvl * 100) + '% → ' + (st.target === 0 ? 'VCA volume' : 'filter cutoff ' + Math.round(FMIN + lvl * FRANGE) + ' Hz');
+  st.hist.push({ t: now, v: lvl, g: st.on !== null && st.off === null ? 1 : 0 }); st.hist = st.hist.filter((p) => now - p.t < 4000);
+  s = f2.svg; w = f2.clientWidth; h = f2.clientHeight; b = h - 10; t0 = 48;
+  s.innerHTML = '';
+  s.append(el('path', { class: 'zero', d: 'M10,' + b + 'H' + (w - 10) }));
+  const XX = (t) => 10 + (1 - (now - t) / 4000) * (w - 20), YY = (v) => b - v * (b - t0);
+  if (st.hist.length > 1) { s.append(el('path', { class: 'guide', d: path(st.hist.map((p) => [XX(p.t), YY(p.g)])) })); s.append(el('path', { class: 'curve' + (live ? ' sounding' : ''), d: path(st.hist.map((p) => [XX(p.t), YY(p.v)])) })); }
+  f2.lead.textContent = Math.round(lvl * 100) + '%'; f2.out.textContent = 'dashed = gate';
+  requestAnimationFrame(draw);
+}
+const A = logBar('Attack', 1, 3000, st.a, (v) => Math.round(v) + ' ms', (v) => { st.a = v; });
+const D = logBar('Decay', 1, 3000, st.d, (v) => Math.round(v) + ' ms', (v) => { st.d = v; });
+const S = bar('Sustain', 0, 1, 0.01, st.s, (v) => Math.round(v * 100) + '%', (v) => { st.s = v; });
+const R = logBar('Release', 1, 4000, st.r, (v) => Math.round(v) + ' ms', (v) => { st.r = v; });
+const set = (a, d, s, r) => { A.setV(a); D.setV(d); S.setV(s); R.setV(r); };
+const kb = keyboard(48, (m, v) => { T.stop(); gateOn(m, v); }, () => gateOff());
+const controls = rack(A, D, S, R,
+  choice('Envelope controls', ['Volume (VCA)', 'Filter cutoff'], 0, (i) => { gateOff(); st.target = i; if (filt) { filt.frequency.cancelScheduledValues(AC.currentTime); filt.frequency.setValueAtTime(i === 0 ? 4000 : FMIN, AC.currentTime); } }),
+  group('Presets', key('Figure 19', () => set(250, 200, 0.7, 200)), key('Pluck', () => set(2, 300, 0, 300)), key('Pad', () => set(1200, 800, 0.8, 2000)), key('Organ', () => set(5, 5, 1, 30)), key('Swell', () => set(2500, 10, 1, 1500))));
+stage.append(f1, f2, controls, kb, hint('Click a key near the top for soft, near the bottom for hard. Or click the keyboard and type A W S E D F T G Y H U J K.'));
+root.append(T.head, stage);
+requestAnimationFrame(draw);
+
+</script></body></html>

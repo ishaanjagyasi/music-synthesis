@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Synth types</title><style>html,body{margin:0;height:100%;background:#4b4b4b;overflow:hidden}#root{height:100%}figure{background:#1d1d1d;border-radius:4px}figcaption{position:absolute;left:10px;right:10px;top:8px;display:flex;justify-content:space-between;align-items:baseline;font-size:11px;color:#aaa;z-index:1}figcaption b{order:3;font-size:20px;color:#eee;position:absolute;left:0;top:14px}figcaption output{order:2}svg .grid{stroke:#333;fill:none}svg .zero{stroke:#555;stroke-dasharray:3 3;fill:none}svg .curve{stroke:#6aa8ff;stroke-width:1.6;fill:none}svg .curve.sounding{stroke:#ff9a3c}svg .area{fill:#6aa8ff33;stroke:none}svg .area.sounding{fill:#ff9a3c44}svg .mark{fill:#6aa8ff}svg .mark.sounding{fill:#ff9a3c}svg .guide{stroke:#888;stroke-dasharray:2 3;fill:none}svg .tick{fill:#888;font:10px monospace}</style></head><body><div id="root"></div><script type="module">const root = document.getElementById('root');
+window.addEventListener('resize', () => window.dispatchEvent(new Event('tilde:resize')));
+
+const NS = 'http://www.w3.org/2000/svg';
+function el(t, a) { const e = document.createElementNS(NS, t); for (const k in a || {}) e.setAttribute(k, a[k]); return e; }
+function div(c) { const d = document.createElement('div'); if (c) d.className = c; return d; }
+const css = document.createElement('style');
+css.textContent = '.al{--b:#4b4b4b;--t:#383838;--l:#242424;--i:#e6e6e6;--s:#b0b0b0;--btn:#5e5e5e;--on:#ffb22e;--go:#62d36b;--arc:#52c7f2;font:11px Helvetica Neue,Arial,sans-serif;color:var(--i);height:100%;display:flex;flex-direction:column;box-sizing:border-box;background:var(--b);overflow:hidden}'
++ '.al-head{display:flex;align-items:center;gap:4px;height:36px;flex:none;padding:0 8px;background:var(--t);border-bottom:1px solid var(--l)}'
++ '.al-name{margin-left:10px;font-weight:600;font-size:12px}.al-status{margin-left:auto;color:var(--s)}'
++ '.al-stage{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:8px;padding:8px;box-sizing:border-box}'
++ 'html body button.al-b{all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:22px;padding:0 9px;font:11px Helvetica Neue,Arial,sans-serif;color:var(--i);background:var(--btn);border:1px solid var(--l);white-space:nowrap;user-select:none}'
++ 'html body button.al-b:hover{filter:brightness(1.12)}'
++ 'html body button.al-b[aria-pressed=true]{background:var(--on);color:#1a1a1a}'
++ 'html body button.al-t{width:36px;height:26px;padding:0}.al-t svg{display:block}'
++ 'html body button.al-play[aria-pressed=true]{background:#2c2c2c}html body button.al-play svg{fill:var(--i)}html body button.al-play[aria-pressed=true] svg{fill:var(--go)}'
++ 'html body button.al-stop svg{fill:var(--i)}'
++ '.al-rack{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 16px;flex:none;padding:8px 10px;background:var(--t);border:1px solid var(--l)}'
++ '.al-seg{display:flex;flex-direction:column;gap:4px}.al-cap{font-size:10px;color:var(--s);white-space:nowrap}.al-row{display:flex}.al-row button.al-b+button.al-b{margin-left:-1px}'
++ '.al-k{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;width:68px;user-select:none;touch-action:none}.al-v{font-size:10px;font-variant-numeric:tabular-nums;color:var(--i);white-space:nowrap}'
++ 'html body input.al-r{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;margin:0}'
++ '.al-hint{font-size:10px;color:var(--s);flex:none}'
++ '.al figure{background:#1b1b1b!important;border:1px solid var(--l)}.al figcaption,.al figcaption span,.al figcaption output{color:#d0d0d0!important}.al figcaption b{color:#fff!important}'
++ '.al svg .curve{stroke:#4fd1ff!important;stroke-width:2!important;fill:none!important}.al svg .curve.sounding{stroke:#ffa62e!important}.al svg .area{fill:rgba(79,209,255,.24)!important;stroke:none!important}.al svg .area.sounding{fill:rgba(255,166,46,.32)!important}.al svg .mark{fill:#4fd1ff!important}.al svg .mark.sounding{fill:#ffa62e!important}'
++ '.al svg .hbar{fill:#4fd1ff!important;fill-opacity:.9!important;stroke:none!important}.al svg .hbar.sounding{fill:#ffa62e!important}'
++ '.al svg .grid{stroke:#454545!important;fill:none!important}.al svg .zero{stroke:#777!important;fill:none!important}.al svg .guide{stroke:#a8a8a8!important;fill:none!important}.al svg .tick{fill:#c0c0c0!important}.al svg .partial{stroke:#8fb4c7!important;stroke-width:1.25!important;fill:none!important;opacity:1!important}';
+document.head.append(css);
+root.classList.add('al');
+const stage = div('al-stage');
+function figure(fl) { const f = document.createElement('figure'); f.style.cssText = 'flex:' + (fl || 1) + ' 1 0;margin:0;position:relative;min-height:0;'; f.innerHTML = '<figcaption><span></span><output></output><b></b></figcaption>'; const s = el('svg'); s.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;'; f.append(s); f.cap = f.querySelector('span'); f.out = f.querySelector('output'); f.lead = f.querySelector('b'); f.svg = s; return f; }
+function pol(r, a) { return [32 + r * Math.sin(a), 30 - r * Math.cos(a)]; }
+function arc(r, a0, a1) { const p = pol(r, a0), q = pol(r, a1); return 'M' + p[0].toFixed(2) + ',' + p[1].toFixed(2) + 'A' + r + ',' + r + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' + q[0].toFixed(2) + ',' + q[1].toFixed(2); }
+const A0 = -2.356, A1 = 2.356;
+function bar(name, min, max, step, init, fmt, on) {
+  const k = div('al-k'), cap = div('al-cap'), o = div('al-v'), r = document.createElement('input'), s = el('svg', { width: 64, height: 52 });
+  cap.textContent = name; r.className = 'al-r'; r.setAttribute('aria-label', name);
+  Object.assign(r, { type: 'range', min, max, step, defaultValue: String(init) }); r.value = String(init);
+  const back = el('path', { d: arc(20, A0, A1), fill: 'none', 'stroke-width': 4 }); back.style.stroke = 'var(--l)';
+  const val = el('path', { fill: 'none', 'stroke-width': 4 }); val.style.stroke = 'var(--arc)';
+  const hand = el('path', { 'stroke-width': 2, 'stroke-linecap': 'round' }); hand.style.stroke = 'var(--i)';
+  s.append(back, val, hand);
+  const show = (txt) => { const f = (Number(r.value) - min) / (max - min), a = A0 + f * (A1 - A0); val.setAttribute('d', f > 0.002 ? arc(20, A0, a) : ''); const p = pol(9, a), q = pol(19, a); hand.setAttribute('d', 'M' + p[0] + ',' + p[1] + 'L' + q[0] + ',' + q[1]); o.textContent = txt === undefined ? fmt(Number(r.value)) : txt; };
+  r.oninput = () => { show(); on(Number(r.value)); };
+  let sy = 0, sf = 0, drag = false;
+  const end = () => { drag = false; };
+  s.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); drag = true; sy = e.clientY; sf = (Number(r.value) - min) / (max - min); s.setPointerCapture(e.pointerId); });
+  s.addEventListener('pointermove', (e) => { if (!drag) return; if (e.buttons === 0 || !s.hasPointerCapture(e.pointerId)) { drag = false; return; } const f = Math.max(0, Math.min(1, sf + (sy - e.clientY) / (e.shiftKey ? 800 : 160))); const v = min + Math.round(f * (max - min) / step) * step; if (v !== Number(r.value)) { r.value = String(v); r.oninput(); } });
+  s.addEventListener('pointerup', end); s.addEventListener('pointercancel', end); s.addEventListener('lostpointercapture', end); window.addEventListener('blur', end);
+  s.addEventListener('dblclick', () => { r.value = String(init); r.oninput(); });
+  k.append(cap, s, o, r); show(); k.range = r; k.out = o; k.show = show;
+  k.setV = (v) => { r.value = String(v); show(); on(v); }; k.put = (v) => { r.value = String(v); show(); };
+  return k;
+}
+function group(name, ...els) { const g = div('al-seg'), c = div('al-cap'), w = div('al-row'); c.textContent = name; w.append(...els); g.append(c, w); return g; }
+function key(label, on) { const b = document.createElement('button'); b.className = 'al-b'; b.textContent = label; b.onclick = () => on(b); return b; }
+function choice(name, opts, init, on) { let cur = init; const ks = opts.map((o, i) => { const k = key(o, () => { cur = i; mark(); on(i); }); return k; }); const mark = () => ks.forEach((k, i) => k.setAttribute('aria-pressed', String(i === cur))); mark(); const g = group(name, ...ks); g.setAttribute('role', 'group'); g.setAttribute('aria-label', name); g.set = (i) => { cur = i; mark(); }; return g; }
+function rack(...els) { const d = div('al-rack'); d.append(...els); return d; }
+function transport(name, onPlay, onStop) {
+  const head = div('al-head'), play = document.createElement('button'), stop = document.createElement('button'), t = div('al-name'), st = div('al-status');
+  play.className = 'al-b al-t al-play'; stop.className = 'al-b al-t al-stop'; play.setAttribute('aria-label', 'Play'); stop.setAttribute('aria-label', 'Stop');
+  const p = el('svg', { width: 14, height: 14, viewBox: '0 0 14 14' }); p.append(el('path', { d: 'M2,1L13,7L2,13Z' })); play.append(p);
+  const q = el('svg', { width: 12, height: 12, viewBox: '0 0 12 12' }); q.append(el('rect', { x: 1, y: 1, width: 10, height: 10 })); stop.append(q);
+  t.textContent = name; head.append(play, stop, t, st);
+  let on = false; const mark = () => play.setAttribute('aria-pressed', String(on)); mark();
+  const T = { head, on: () => on, status: (s) => { st.textContent = s; }, start: () => { if (on) return; on = true; mark(); onPlay(); }, stop: () => { if (!on) return; on = false; mark(); onStop(); } };
+  play.onclick = T.start; stop.onclick = T.stop;
+  return T;
+}
+function path(p) { return p.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1)).join(''); }
+function tickT(svg, x, y, s, an) { const t = el('text', { class: 'tick', x, y, 'text-anchor': an || 'start' }); t.textContent = s; svg.append(t); return t; }
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+let AC = null, master = null;
+function ctx() { if (!AC) { AC = new (window.AudioContext || window.webkitAudioContext)(); master = AC.createGain(); master.gain.value = 0.25; master.connect(AC.destination); } return AC; }
+function audio() { ctx(); if (AC.state === 'suspended') AC.resume(); return AC; }
+
+// ---- Slide 12: analog vs digital vs hybrid ----
+const MODES = ['Analog', 'Digital', 'Hybrid', 'Virtual analog'];
+const st = { mode: 0, drift: 12, cold: 0, on: false, dv: [0, 0, 0], hist: [] };
+const NOTES = [48, 52, 55];
+let oscs = [], shaper = null, filt = null, g = null, inp = null, wet = null, dry = null;
+const drifts = () => st.mode === 0;
+const warm = () => st.mode !== 1;
+function curve(k) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = i / (n - 1) * 2 - 1; c[i] = k ? Math.tanh(k * x) / Math.tanh(k) : x; } return c; }
+function apply() { if (!st.on) return; const t = AC.currentTime; wet.gain.setTargetAtTime(warm() ? 1 : 0, t, 0.05); dry.gain.setTargetAtTime(warm() ? 0 : 1, t, 0.05); filt.frequency.setTargetAtTime(warm() ? 2600 : 14000, t, 0.05); filt.Q.setTargetAtTime(warm() ? 1.5 : 0.7, t, 0.05); }
+function start() { audio(); g = AC.createGain(); g.gain.value = 0; shaper = AC.createWaveShaper(); shaper.curve = curve(2.2); filt = AC.createBiquadFilter(); filt.type = 'lowpass'; inp = AC.createGain(); wet = AC.createGain(); dry = AC.createGain(); wet.gain.value = warm() ? 1 : 0; dry.gain.value = warm() ? 0 : 1; inp.connect(shaper).connect(wet).connect(filt); inp.connect(dry).connect(filt); filt.connect(g).connect(master); oscs = NOTES.map((m) => { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = mtof(m); const v = AC.createGain(); v.gain.value = 0.22; o.connect(v).connect(inp); o.start(); return o; }); st.on = true; apply(); g.gain.setTargetAtTime(0.9, AC.currentTime, 0.05); }
+function stop() { g.gain.setTargetAtTime(0, AC.currentTime, 0.05); const O = oscs; setTimeout(() => O.forEach((o) => o.stop()), 300); oscs = []; st.on = false; }
+const T = transport('Synth types', start, stop);
+T.status('Play holds a C major chord');
+let last = performance.now();
+function step(now) {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  st.cold = Math.max(0, st.cold - dt * 0.3);
+  const lim = st.drift * (1 + st.cold * 3);
+  for (let i = 0; i < 3; i++) { if (drifts()) { st.dv[i] += (Math.random() - 0.5) * lim * 0.25 * (1 + st.cold); st.dv[i] += (-st.dv[i]) * 0.02; st.dv[i] = Math.max(-lim, Math.min(lim, st.dv[i])); if (st.cold > 0) st.dv[i] -= st.cold * 0.15; } else st.dv[i] *= 0.8; }
+  if (st.on) oscs.forEach((o, i) => o.detune.setTargetAtTime(st.dv[i], AC.currentTime, 0.08));
+  st.hist.push({ t: now, v: st.dv.slice() }); st.hist = st.hist.filter((p) => now - p.t < 6000);
+  draw(now); requestAnimationFrame(step);
+}
+const f1 = figure(1.2), f2 = figure(0.8);
+f1.cap.textContent = 'Pitch drift of each oscillator, last 6 s (cents)';
+f2.cap.textContent = 'Where the signal is analog or digital';
+function box(s, x, y, w, h, label, live) { s.append(el('rect', { x, y, width: w, height: h, rx: 6, class: 'area' + (live ? ' sounding' : '') })); s.append(el('rect', { x, y, width: w, height: h, rx: 6, class: 'grid', fill: 'none' })); label.split('|').forEach((ln, i, a) => tickT(s, x + w / 2, y + h / 2 + 4 + (i - (a.length - 1) / 2) * 13, ln, 'middle')); }
+function draw(now) {
+  let s = f1.svg, w = f1.clientWidth, h = f1.clientHeight, t0 = 52, b = h - 12, L = 46, R = w - 10, mid = (t0 + b) / 2, rng = 40;
+  const X = (t) => L + (1 - (now - t) / 6000) * (R - L), Y = (c) => mid - c / rng * (b - t0) / 2;
+  s.innerHTML = '';
+  for (const c of [-30, -15, 15, 30]) { s.append(el('path', { class: 'grid', d: 'M' + L + ',' + Y(c) + 'H' + R })); tickT(s, 4, Y(c) + 3, (c > 0 ? '+' : '') + c + '¢'); }
+  s.append(el('path', { class: 'zero', d: 'M' + L + ',' + mid + 'H' + R })); tickT(s, 4, mid + 3, 'in tune');
+  const cls = ['curve', 'guide', 'curve'];
+  for (let i = 0; i < 3; i++) if (st.hist.length > 1) { const pth = el('path', { class: cls[i] + (st.on ? ' sounding' : ''), d: path(st.hist.map((p) => [X(p.t), Y(Math.max(-rng, Math.min(rng, p.v[i])))])) }); if (i === 2) pth.style.opacity = '0.5'; s.append(pth); }
+  const mx = Math.max(...st.dv.map(Math.abs));
+  f1.lead.textContent = '±' + mx.toFixed(1) + '¢';
+  f1.out.textContent = drifts() ? (st.cold > 0.05 ? 'cold circuits: warming up…' : 'analog oscillators wander') : 'digital oscillators stay exactly in tune';
+  s = f2.svg; w = f2.clientWidth; h = f2.clientHeight; s.innerHTML = '';
+  const bw = (w - 20 - 3 * 16) / 4, y = 56, bh = Math.max(36, h - 72), Xb = (i) => 10 + i * (bw + 16);
+  const kind = [[1, 1, 1, 0], [0, 0, 0, 0], [0, 1, 1, 0], [0, 0, 0, 0]][st.mode];
+  ['Oscillators', 'Filter', 'Amplifier', 'Presets & automation'].forEach((n, i) => { box(s, Xb(i), y, bw, bh, n + '|' + (i === 3 ? (st.mode === 0 ? 'few or none' : 'saved in software') : kind[i] ? 'ANALOG (voltage)' : st.mode === 3 ? 'DIGITAL emulating analog' : 'DIGITAL (0s and 1s)'), kind[i] === 1 && st.on); if (i < 3) s.append(el('path', { class: st.on ? 'curve sounding' : 'guide', d: 'M' + (Xb(i) + bw) + ',' + (y + bh / 2) + 'H' + Xb(i + 1) })); });
+  f2.lead.textContent = MODES[st.mode];
+  f2.out.textContent = ['warm, drifts, no presets', 'clean, stable, programmable', 'stable digital pitch, analog tone', 'analog character in software (such as ES1)'][st.mode];
+}
+stage.append(f1, f2, rack(
+  choice('Synth type', MODES, 0, (i) => { st.mode = i; apply(); }),
+  bar('Analog drift', 0, 30, 1, st.drift, (v) => '±' + v + ' cents', (v) => { st.drift = v; }),
+  group('Warm-up', key('Cold start', () => { st.cold = 3; }))));
+root.append(T.head, stage);
+requestAnimationFrame(step);
+
+</script></body></html>
